@@ -46,8 +46,7 @@ public class CamEmgu : MonoBehaviour
         contours = new VectorOfVectorOfPoint();
         biggestContourArea = 0;
         
-        Mat image, imgGray, imgHSV, imgBlur, imgMedianBlur, imgGaussianBlur;
-        //image = CvInvoke.Imread("Assets/jordi.jpg");
+        Mat image, imgGray, imgHSV, imgBlur, imgMedianBlur, imgGaussianBlur;     
         image = _webcam.QueryFrame();
         CvInvoke.Flip(image, image, FlipType.Horizontal);
         

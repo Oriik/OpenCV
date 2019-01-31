@@ -75,9 +75,7 @@ public class Seuillage : MonoBehaviour {
 
             vectListMarkers.Push(contours[i]);
         }
-
-       
-
+        
         return vectListMarkers;
     }
 
