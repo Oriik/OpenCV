@@ -58,8 +58,8 @@ public class WebcamCapture : MonoBehaviour
     private void _webcam_ImageGrabbed(object sender, EventArgs e)
     {
         webcam.Retrieve(frame);
-        if (frame.IsEmpty) return;
-
+        if (frame.IsEmpty) return;        
+        
         CvInvoke.Flip(frame, frame, FlipType.Horizontal);
 
         frameHSV = frame.Clone();
@@ -67,7 +67,7 @@ public class WebcamCapture : MonoBehaviour
         Image<Hsv, byte> HSV = frameHSV.ToImage<Hsv, byte>();
         Image<Gray, byte> hsvGray = HSV.InRange(new Hsv(GREEN - intensity, sMin, vMin), new Hsv(GREEN + intensity, sMax, vMax));
         CvInvoke.Imshow("TEST", hsvGray);
-
+       
         Image<Gray, byte> dilate = hsvGray.Clone();
         Mat structuringElement = CvInvoke.GetStructuringElement(ElementShape.Ellipse, new Size(2 * sizeStruct + 1, 2 * sizeStruct + 1), new Point(sizeStruct, sizeStruct));
 
@@ -90,8 +90,6 @@ public class WebcamCapture : MonoBehaviour
 
         }
 
-
-
         //CvInvoke.CvtColor(frame, frameGray, ColorConversion.Bgr2Gray);
         //CvInvoke.AdaptiveThreshold(frameGray, frameGray, 255, AdaptiveThresholdType.MeanC, ThresholdType.BinaryInv, 7, 6);
 
@@ -100,8 +98,11 @@ public class WebcamCapture : MonoBehaviour
         //CvInvoke.FindContours(frameGray, contours, hierarchy, RetrType.List, ChainApproxMethod.ChainApproxSimple);
         //contours = FilterContours(frameGray);
 
+        if (contours != null &&  contours.Size > 0)
+        {
+            CvInvoke.DrawContours(frame, contours, biggestContourIndex, new MCvScalar(0, 0, 255), 3);
+        }
 
-        CvInvoke.DrawContours(frame, contours, biggestContourIndex, new MCvScalar(0, 0, 255), 3);
 
         displayFrame(frame, image, tex);
         //displayFrame(frameGray, imageGray, texGray);
@@ -113,10 +114,8 @@ public class WebcamCapture : MonoBehaviour
     {
         if (!_frame.IsEmpty)
         {
-
             _tex = convertMatToTexture2D(_frame.Clone(), (int)_image.rectTransform.rect.width, (int)_image.rectTransform.rect.width);
             _image.sprite = Sprite.Create(_tex, new Rect(0.0f, 0.0f, _tex.width, _tex.height), new Vector2(0.5f, 0.5f), 100.0f);
-
         }
     }
 
