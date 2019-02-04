@@ -17,7 +17,7 @@ public class SetupCapture : MonoBehaviour
 
     private Texture2D texFrame;
     private VideoCapture webcam;
-    private Mat frame;
+    private Mat frame, test;
 
     private Vector2 orgBoxPos = Vector2.zero;
     private Vector2 endBoxPos = Vector2.zero;
@@ -26,12 +26,14 @@ public class SetupCapture : MonoBehaviour
     private Texture2D tex;
     private UnityEngine.Color texColor;
     private double hTarget;
+    private double sTarget;
+    private double vTarget;
     private int intensity = 20;
-    private double sMin;
-    private double vMin;
-    private double sMax;
-    private double vMax;
-    private bool oui = false;
+    private double sMin = 0;
+    private double vMin = 0;
+    private double sMax = 255;
+    private double vMax = 255;
+    private bool colorDetect = false;
     #endregion
 
     #region UnityFunction
@@ -68,14 +70,12 @@ public class SetupCapture : MonoBehaviour
 
             endBoxPos = orgBoxPos = Vector2.zero;
         }
-        if (oui)
+        if (colorDetect)
         {
-            Mat temp = frame.Clone();
-            CvInvoke.CvtColor(frame, temp, ColorConversion.Rgb2Hsv);
-            Image<Hsv, byte> ImgHSV = temp.ToImage<Hsv, byte>();
-            Image<Gray, byte> hsv = ImgHSV.InRange(new Hsv(hTarget - intensity, sMin, vMin), new Hsv(hTarget + intensity, sMax, vMax));
-            CvInvoke.Imshow("HSVOUI", hsv);
+          
         }
+
+       
 
 
     }
@@ -84,79 +84,90 @@ public class SetupCapture : MonoBehaviour
 
     private void HandleUnitSelection()
     {
-        double[] minV, maxV;
-        Point[] minL, maxL;
-        int BlueHist;
-        int GreenHist;
-        int RedHist;
-
         Vector2 temp = endBoxPos - orgBoxPos;
         Rectangle rect = new Rectangle((int)orgBoxPos.x, 480 - (int)(orgBoxPos.y),
                                 (int)(Mathf.Abs(temp.x)),
                                 (int)(Mathf.Abs(temp.y)));
 
 
+         test = new Mat(frame, rect);
 
-        Mat test = new Mat(frame, rect);
-        Mat hsv = test.Clone();
+        Image<Bgr, Byte> imgBgr = test.ToImage<Bgr, byte>();
 
-        CvInvoke.CvtColor(test, hsv, ColorConversion.Bgr2Hsv);
+        var moments = CvInvoke.Moments(imgBgr[0]);
+        int cx = (int)(moments.M10 / moments.M00);
+        int cy = (int)(moments.M01 / moments.M00);
 
-        Mat[] channels = hsv.Split();
+        int b = 0, g = 0, r = 0;
+        for (int i = 0; i < 5; i++)
+        {
+            Point pts1 = new Point(cx + i, cy + i);
+            Point pts2 = new Point(cx - i, cy - i);
+            Point pts3 = new Point(cx - i, cy + i);
+            Point pts4 = new Point(cx + i, cy - i);
 
-        RangeF H = channels[0].GetValueRange();
-        RangeF S = channels[1].GetValueRange();
-        RangeF V = channels[2].GetValueRange();
+            r += (int)imgBgr[pts1].Red;
+            r += (int)imgBgr[pts2].Red;
+            r += (int)imgBgr[pts3].Red;
+            r += (int)imgBgr[pts4].Red;
 
-        Debug.Log(string.Format("Max H {0} Min H {1}", H.Max, H.Min));
-        Debug.Log(string.Format("Max S {0} Min S {1}", S.Max, S.Min));
-        sMin = S.Min;
-        sMax = S.Max;
-        Debug.Log(string.Format("Max V {0} Min V {1}", V.Max, V.Min));
-        vMin = V.Min;
-        vMax = V.Max;
+            g += (int)imgBgr[pts1].Green;
+            g += (int)imgBgr[pts2].Green;
+            g += (int)imgBgr[pts3].Green;
+            g += (int)imgBgr[pts4].Green;
 
-        MCvScalar mean = CvInvoke.Mean(hsv);
-        Debug.Log(string.Format("Mean H {0} Mean S {1} Mean V {2} ", mean.V0, mean.V1, mean.V2));
-        hTarget = mean.V0;
+            b += (int)imgBgr[pts1].Blue;
+            b += (int)imgBgr[pts2].Blue;
+            b += (int)imgBgr[pts3].Blue;
+            b += (int)imgBgr[pts4].Blue;
+        }
 
-        oui = true;
+        r = r / 20;
+        g = g / 20;
+        b = b / 20;
+
+        System.Drawing.Color c = System.Drawing.Color.FromArgb(r, g, b);
+        Hsv hsv = new Hsv(c.GetHue(), c.GetSaturation(), c.GetBrightness());
+     
+        hTarget = hsv.Hue / 2;
+        sTarget = hsv.Satuation;
+        vTarget = hsv.Value;
+
+        Mat tata = test.Clone();
+        CvInvoke.CvtColor(test, tata, ColorConversion.Bgr2Hsv);
+        Image<Hsv, byte> ImgHSV = tata.ToImage<Hsv, byte>();
+
+        Image<Gray, byte> tarace = ImgHSV.InRange(new Hsv(hTarget - intensity, 0, 0), new Hsv(hTarget + intensity, 255, 255));
+
+        Mat hierarchy = new Mat();
+        VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
+        CvInvoke.FindContours(tarace, contours, hierarchy, RetrType.List, ChainApproxMethod.ChainApproxNone);
+
+        double biggestContourArea = 0;
+        VectorOfPoint biggestContour = new VectorOfPoint();
+        int biggestContourIndex = 0;
+        for (int i = 0; i < contours.Size; i++)
+        {
+            
+            if (CvInvoke.ContourArea(contours[i]) > biggestContourArea)
+            {
+                biggestContour = contours[i];
+                biggestContourIndex = i;
+                biggestContourArea = CvInvoke.ContourArea(contours[i]);
+            }
+
+        }
+
+
+        Mat biggestContourMat = new Mat(test, CvInvoke.BoundingRectangle(contours[biggestContourIndex]));
+
+       CvInvoke.Mean()
+        
 
 
 
-        //Mat median = test.Clone();
-        ////CvInvoke.Imshow("test2", test);
 
-        //CvInvoke.Rectangle(frame, rect, new MCvScalar(0, 0, 255), 3);
-
-        //CvInvoke.Imshow("test", frame);
-
-        //CvInvoke.MedianBlur(test, median, 101);
-        //CvInvoke.Imshow("georges", median);
-
-        //Image<Hsv, Byte> hsv = median.ToImage<Hsv, Byte>();
-        ////CvInvoke.Imshow("georges2", hsv);
-        //byte georges = hsv.Data[hsv.Width / 2, hsv.Height / 2,0];
-        //Debug.Log(georges);
-        //Image<Hsv, Byte> imgHSV = test.ToImage<Hsv, Byte>();
-
-
-        //Image<Gray, Byte> img = imgHSV[0];
-
-
-        //DenseHistogram hist = new DenseHistogram(256, new RangeF(0.0f, 255.0f));
-        //hist.Calculate<Byte>(new Image<Gray, byte>[] { img }, true, null);
-
-        //double[] minValue, maxValue;
-        //Point[] minLocation;
-        //Point[] maxLocation;
-        //hist.MinMax(out minValue, out maxValue, out minLocation, out maxLocation);
-
-
-        //Debug.Log(maxLocation.Length);
-        //Debug.Log(maxLocation[0].X);
-        //Debug.Log(maxLocation[0].Y);
-        //Debug.Log(maxValue[0]);
+       // colorDetect = true;
 
 
     }
